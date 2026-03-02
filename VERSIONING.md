@@ -1,39 +1,51 @@
-# Helyi verziókezelés (Git nélkül)
+# Stabil verziózás és visszaállás (Git)
 
-Mivel ezen a gépen jelenleg nincs `git`, ideiglenesen snapshot-alapú verziókezelés van beállítva.
+Ez a projekt most már Git-alapú stabil verziózást használ.
 
-## 1) Új verzió mentése
+## Gyors használat (neked ez kell)
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\create_snapshot.ps1 -Label "fix-inline-onclick"
-```
-
-Ez létrehoz egy új mentést a `.snapshots` mappába (időbélyeggel).
-
-## 2) Elérhető verziók listázása
+### 1) Stabil verzió mentése (minden sikeres javítás/funkció után)
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\list_snapshots.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\create_stable_version.ps1 -Label "rovid-leiras"
 ```
 
-## 3) Visszaállás egy verzióra
+Példa:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\restore_snapshot.ps1 -SnapshotName "20260302-153000-fix-inline-onclick"
+powershell -ExecutionPolicy Bypass -File .\scripts\create_stable_version.ps1 -Label "login-fix"
 ```
 
-A visszaállítás előtt automatikusan készül egy biztonsági mentés is: `pre-restore-...`.
+### 2) Stabil verziók listázása
 
----
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\list_stable_versions.ps1
+```
 
-## Ajánlott workflow
+### 3) Visszaállás az előző stabil verzióra
 
-- Javítás/funkció előtt: `create_snapshot.ps1`
-- Javítás/funkció után: `create_snapshot.ps1` új labellel
-- Ha gond van: `restore_snapshot.ps1`
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\rollback_stable.ps1
+```
 
----
+Alapból a `stable-previous` verzióra áll vissza.
 
-## Amint felkerül a Git
+Ha a legutóbbi stabilra akarsz visszaállni:
 
-Átállunk commit+tag alapú verziózásra (`v1.0.0`, `v1.0.1`, stb.), ami még tisztább és megbízhatóbb visszalépést ad.
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\rollback_stable.ps1 -Target stable-latest
+```
+
+## Mit csinál automatikusan
+
+- Minden stabil mentésnél commit készül (ha van változás).
+- Létrejön egy egyedi stabil tag: `stable-YYYYMMDD-HHMMSS-label`.
+- A `stable-latest` mindig a legutóbbi stabilra mutat.
+- A `stable-previous` az azelőtti stabilra mutat.
+- Rollback előtt automatikusan készül egy biztonsági tag: `backup-before-rollback-...`.
+
+## Ajánlott rutin
+
+1. Módosítások után tesztelj.
+2. Ha jó: `create_stable_version.ps1`.
+3. Ha bármi gond: `rollback_stable.ps1`.
