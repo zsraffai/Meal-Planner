@@ -2,6 +2,8 @@
 
 Ez a projekt most már Git-alapú stabil verziózást használ.
 
+Alapértelmezetten a stabil mentés végén automatikusan fel is pusholja a változásokat GitHubra.
+
 ## Gyors használat (neked ez kell)
 
 ### 1) Stabil verzió mentése (minden sikeres javítás/funkció után)
@@ -14,6 +16,12 @@ Példa:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\create_stable_version.ps1 -Label "login-fix"
+```
+
+Ha valamiért most nem szeretnél pusholni (csak helyi mentés):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\create_stable_version.ps1 -Label "local-only" -NoPush
 ```
 
 ### 2) Stabil verziók listázása
@@ -42,6 +50,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\rollback_stable.ps1 -Target s
 - Létrejön egy egyedi stabil tag: `stable-YYYYMMDD-HHMMSS-label`.
 - A `stable-latest` mindig a legutóbbi stabilra mutat.
 - A `stable-previous` az azelőtti stabilra mutat.
+- A commit és a stabil tagek automatikusan pusholódnak a beállított remote-ra.
 - Rollback előtt automatikusan készül egy biztonsági tag: `backup-before-rollback-...`.
 
 ## Ajánlott rutin

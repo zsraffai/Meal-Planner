@@ -1,6 +1,8 @@
 param(
     [Parameter(Mandatory = $false)]
-    [string]$Label = "update"
+    [string]$Label = "update",
+    [Parameter(Mandatory = $false)]
+    [switch]$NoPush
 )
 
 $ErrorActionPreference = "Stop"
@@ -63,4 +65,27 @@ Write-Host "Stabil verzió létrehozva: $stableTag"
 Write-Host "Mutató tag: stable-latest -> $headCommit"
 if ($previousLatest) {
     Write-Host "Előző stabil: stable-previous -> $previousLatest"
+}
+
+if (-not $NoPush) {
+    $remoteName = $null
+    try {
+        $remoteName = (git remote | Select-Object -First 1).Trim()
+    } catch {
+        $remoteName = $null
+    }
+
+    if ([string]::IsNullOrWhiteSpace($remoteName)) {
+        Write-Warning "Nincs beállított git remote, ezért az automatikus push kihagyva."
+        Write-Host "Tipp: git remote add origin <repo-url>"
+    } else {
+        Write-Host "Automatikus push indul: $remoteName"
+        git push $remoteName
+        git push $remoteName $stableTag
+        git push --force $remoteName refs/tags/stable-latest
+        if ($previousLatest) {
+            git push --force $remoteName refs/tags/stable-previous
+        }
+        Write-Host "GitHub push kész (branch + stabil tagek)."
+    }
 }
