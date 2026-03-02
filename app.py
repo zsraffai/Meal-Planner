@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-from database import init_db, save_meal, get_meals_by_date, get_meals_by_week, get_settings, save_settings, save_chat_message, get_chat_history, delete_meals_by_date, save_shopping_list, get_shopping_list, clear_shopping_list, save_meal_prep, get_meal_prep_by_date
+from database import init_db, save_meal, get_meals_by_date, get_meals_by_week, get_settings, save_settings, save_chat_message, get_chat_history, delete_meals_by_date, save_shopping_list, get_shopping_list, clear_shopping_list, save_meal_prep, get_meal_prep_by_date, get_db_connection
 import requests
 import os
 from datetime import datetime, timedelta
@@ -17,7 +17,7 @@ except:
         pass  # Ha nem sikerül, az angol formátum marad
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
 
 # 🔑 INIT_DB meghívása - ez megoldja a "no such table" hibát!
 init_db()
@@ -31,7 +31,7 @@ GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
 GOOGLE_REDIRECT_URI = os.environ.get('GOOGLE_REDIRECT_URI', 'http://localhost:5000/auth/google/callback')
 
 # Egyszerű auth (1 felhasználó)
-CORRECT_PASSWORD = "jelszo123"  # ⚠️ VÁLTOZTASD MEG PRODUCTION ELŐTT!
+CORRECT_PASSWORD = os.environ.get('APP_PASSWORD', 'jelszo123')
 
 def login_required(f):
     @wraps(f)
