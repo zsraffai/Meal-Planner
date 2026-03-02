@@ -46,7 +46,7 @@ $headCommit = (git rev-parse HEAD).Trim()
 
 $previousLatest = $null
 try {
-    $previousLatest = (git rev-parse --verify refs/tags/stable-latest^{commit} 2>$null).Trim()
+    $previousLatest = (git rev-parse --verify "refs/tags/stable-latest`^{commit}" 2>$null).Trim()
 } catch {
     $previousLatest = $null
 }
