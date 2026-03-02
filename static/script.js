@@ -163,7 +163,13 @@ EBÉD: [étel neve] ([kalória] kcal)
 UZSONNA: [étel neve] ([kalória] kcal)
 [recept]
 VACSORA: [étel neve] ([kalória] kcal)
-[recept]`;
+[recept]
+
+További elvárások:
+- Ne legyenek egymást követő napokon ugyanazok az ételek.
+- Legyen változatosabb reggeli/tízórai/uzsonna, ne mindig ugyanaz a minta.
+- Legyen praktikus: ebédeknél és vacsoráknál lehet okos előkészítés, hogy ne kelljen sokat főzni.
+- Ha valami ismétlődik, az tudatosan legyen tervezve (pl. másnapi ebéd maradékból).`;
     
     try {
         const response = await fetch('/api/chat', {
@@ -297,128 +303,92 @@ async function clearDay(date) {
     }
 }
 
-// === ÚJ FUNKCIÓK ===
-
-// Meal Prep
-let currentMealPrepDate = null;
-
-function openMealPrepPopup(date) {
-    currentMealPrepDate = date;
-    document.getElementById('mealPrepPopup').style.display = 'flex';
+function formatHungarianDayName(dateObj) {
+    const dayName = dateObj.toLocaleDateString('hu-HU', { weekday: 'long' });
+    return dayName.charAt(0).toUpperCase() + dayName.slice(1);
 }
 
-function closeMealPrepPopup() {
-    document.getElementById('mealPrepPopup').style.display = 'none';
-    currentMealPrepDate = null;
+function formatHungarianDateNumber(dateObj) {
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    return `${year}. ${month}. ${day}.`;
 }
 
-async function generateMealPrep() {
-    const days = document.getElementById('mealPrepDays').value;
-    const mealTypeCheckboxes = document.querySelectorAll('.meal-prep-type:checked');
-    const mealTypes = Array.from(mealTypeCheckboxes).map(cb => cb.value);
-    
-    if (mealTypes.length === 0) {
-        alert('❌ Kérlek válassz legalább egy étkezéstípust!');
+function getAddedDaysFromStorage() {
+    try {
+        const raw = localStorage.getItem('addedMealPlannerDays');
+        return raw ? JSON.parse(raw) : [];
+    } catch {
+        return [];
+    }
+}
+
+function saveAddedDaysToStorage(days) {
+    localStorage.setItem('addedMealPlannerDays', JSON.stringify(days));
+}
+
+function renderExtraDayCard(isoDate) {
+    if (document.getElementById(`day-${isoDate}`)) {
         return;
     }
-    
-    const loadingDiv = document.createElement('div');
-    loadingDiv.className = 'loading';
-    loadingDiv.textContent = '🍲 Meal prep recept generálása...';
-    document.getElementById(`meals-${currentMealPrepDate}`).innerHTML = '';
-    document.getElementById(`meals-${currentMealPrepDate}`).appendChild(loadingDiv);
-    
-    closeMealPrepPopup();
-    
-    try {
-        const response = await fetch('/api/meal-prep', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                date: currentMealPrepDate,
-                days: days,
-                meal_types: mealTypes
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            for (let i = 0; i < days; i++) {
-                const prepDate = new Date(currentMealPrepDate);
-                prepDate.setDate(prepDate.getDate() + i);
-                const isoDate = prepDate.toISOString().split('T')[0];
-                const dayElement = document.getElementById(`day-${isoDate}`);
-                if (dayElement) {
-                    dayElement.style.backgroundColor = '#fff8e1';
-                    dayElement.style.borderColor = '#ffc107';
-                }
-            }
-            
-            alert('✅ Meal prep recept generálva és elmentve!');
-            location.reload();
-        } else {
-            alert('❌ Hiba történt a generálás során!');
-        }
-    } catch (error) {
-        console.error('Meal prep error:', error);
-        alert('❌ Hiba történt!');
+
+    const calendarGrid = document.querySelector('.calendar-grid');
+    const addDayCard = document.querySelector('.add-day-card');
+    if (!calendarGrid || !addDayCard) return;
+
+    const dateObj = new Date(`${isoDate}T12:00:00`);
+    const dayName = formatHungarianDayName(dateObj);
+    const dayNumber = formatHungarianDateNumber(dateObj);
+
+    const card = document.createElement('div');
+    card.className = 'calendar-day';
+    card.id = `day-${isoDate}`;
+    card.innerHTML = `
+        <div class="day-header">
+            <div class="day-name">${dayName}</div>
+            <div class="day-date">${dayNumber}</div>
+        </div>
+
+        <div class="meals-list" id="meals-${isoDate}">
+            <div class="no-meals">Még nincs étel</div>
+        </div>
+
+        <div class="day-actions">
+            <button class="btn btn-small btn-generate" onclick="generateMealPlan('${isoDate}')">🤖 AI Étrend</button>
+            <button class="btn btn-small btn-danger" onclick="clearDay('${isoDate}')">🗑️ Törlés</button>
+        </div>
+    `;
+
+    calendarGrid.insertBefore(card, addDayCard);
+}
+
+function addNewDayCard() {
+    const dayCards = Array.from(document.querySelectorAll('.calendar-day[id^="day-"]'));
+    if (dayCards.length === 0) return;
+
+    const isoDates = dayCards
+        .map(card => card.id.replace('day-', ''))
+        .filter(Boolean)
+        .sort();
+
+    const latestIsoDate = isoDates[isoDates.length - 1];
+    const nextDate = new Date(`${latestIsoDate}T12:00:00`);
+    nextDate.setDate(nextDate.getDate() + 1);
+
+    const nextIsoDate = nextDate.toISOString().split('T')[0];
+    renderExtraDayCard(nextIsoDate);
+
+    const storedDays = getAddedDaysFromStorage();
+    if (!storedDays.includes(nextIsoDate)) {
+        storedDays.push(nextIsoDate);
+        saveAddedDaysToStorage(storedDays);
     }
 }
 
-// Gyors Étel
-let currentQuickMealDate = null;
-
-function openQuickMealPopup(date) {
-    currentQuickMealDate = date;
-    document.getElementById('quickMealPopup').style.display = 'flex';
-}
-
-function closeQuickMealPopup() {
-    document.getElementById('quickMealPopup').style.display = 'none';
-    currentQuickMealDate = null;
-}
-
-async function generateQuickMeal() {
-    const mealType = document.getElementById('quickMealType').value;
-    const ingredients = document.getElementById('quickMealIngredients').value.trim();
-    
-    if (!ingredients) {
-        alert('❌ Kérlek add meg, mi van otthon!');
-        return;
-    }
-    
-    const loadingDiv = document.createElement('div');
-    loadingDiv.className = 'loading';
-    loadingDiv.textContent = '⚡ Gyors étel generálása...';
-    document.getElementById(`meals-${currentQuickMealDate}`).innerHTML = '';
-    document.getElementById(`meals-${currentQuickMealDate}`).appendChild(loadingDiv);
-    
-    closeQuickMealPopup();
-    
-    try {
-        const response = await fetch('/api/quick-meal', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                date: currentQuickMealDate,
-                meal_type: mealType,
-                ingredients: ingredients
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            alert('✅ Gyors étel generálva! A hiányzó hozzávalók a bevásárlólistára kerültek.');
-            location.reload();
-        } else {
-            alert('❌ Hiba történt a generálás során!');
-        }
-    } catch (error) {
-        console.error('Quick meal error:', error);
-        alert('❌ Hiba történt!');
-    }
+function restoreAddedDayCards() {
+    const storedDays = getAddedDaysFromStorage();
+    storedDays.forEach(isoDate => renderExtraDayCard(isoDate));
 }
 
 // Étel Módosítás
@@ -432,16 +402,23 @@ function modifyMeal(mealId, mealName) {
 
 function closeModifyMealPopup() {
     document.getElementById('modifyMealPopup').style.display = 'none';
+    document.getElementById('modifyMealLoading').style.display = 'none';
+    document.getElementById('modifyMealApplyBtn').disabled = false;
     currentModifyMealId = null;
 }
 
 async function applyMealModification() {
     const modification = document.getElementById('mealModification').value.trim();
+    const loadingEl = document.getElementById('modifyMealLoading');
+    const applyButton = document.getElementById('modifyMealApplyBtn');
     
     if (!modification) {
         alert('❌ Kérlek add meg, mit szeretnél módosítani!');
         return;
     }
+
+    loadingEl.style.display = 'block';
+    applyButton.disabled = true;
     
     try {
         const response = await fetch(`/api/meal/${currentModifyMealId}/modify`, {
@@ -464,6 +441,9 @@ async function applyMealModification() {
     } catch (error) {
         console.error('Modify meal error:', error);
         alert('❌ Hiba történt!');
+    } finally {
+        loadingEl.style.display = 'none';
+        applyButton.disabled = false;
     }
 }
 
@@ -492,6 +472,8 @@ function logout() {
 
 // Load chat history on page load
 window.addEventListener('DOMContentLoaded', async () => {
+    restoreAddedDayCards();
+
     try {
         const response = await fetch('/api/chat/history');
         const history = await response.json();
@@ -509,14 +491,10 @@ window.addEventListener('DOMContentLoaded', async () => {
 // Close popup on outside click
 window.addEventListener('click', (e) => {
     const recipePopup = document.getElementById('recipePopup');
-    const mealPrepPopup = document.getElementById('mealPrepPopup');
-    const quickMealPopup = document.getElementById('quickMealPopup');
     const modifyMealPopup = document.getElementById('modifyMealPopup');
     const settingsOverlay = document.getElementById('settingsOverlay');
     
     if (e.target === recipePopup) closeRecipePopup();
-    if (e.target === mealPrepPopup) closeMealPrepPopup();
-    if (e.target === quickMealPopup) closeQuickMealPopup();
     if (e.target === modifyMealPopup) closeModifyMealPopup();
     if (e.target === settingsOverlay) closeSettingsOverlay();
 });

@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 import locale
 import json
+import re
 
 # Magyar dátumformázás próbálkozás
 try:
@@ -32,6 +33,31 @@ GOOGLE_REDIRECT_URI = os.environ.get('GOOGLE_REDIRECT_URI', 'http://localhost:50
 
 # Egyszerű auth (1 felhasználó)
 CORRECT_PASSWORD = os.environ.get('APP_PASSWORD', 'jelszo123')
+
+HU_DAY_NAMES = ['Hétfő', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szombat', 'Vasárnap']
+
+
+def get_hungarian_day_name(date_obj):
+    return HU_DAY_NAMES[date_obj.weekday()]
+
+
+def calculate_target_calories(modification_text, original_calories):
+    modification_lower = (modification_text or '').lower()
+    should_reduce = any(keyword in modification_lower for keyword in [
+        'csökkent', 'kevesebb', 'alacsonyabb', 'minusz', 'mínusz', 'kisebb', 'diétás'
+    ])
+
+    explicit_calorie_match = re.search(r'(\d{2,4})\s*kcal', modification_lower)
+    if explicit_calorie_match:
+        explicit_calories = int(explicit_calorie_match.group(1))
+        return max(50, explicit_calories)
+
+    if should_reduce:
+        if original_calories and original_calories > 0:
+            return max(50, int(round(original_calories * 0.8)))
+        return 300
+
+    return original_calories if original_calories and original_calories > 0 else 400
 
 def login_required(f):
     @wraps(f)
@@ -103,7 +129,7 @@ def index():
         date_obj = today + timedelta(days=i)
         dates.append({
             'iso': date_obj.strftime('%Y-%m-%d'),
-            'day_name': date_obj.strftime('%A').capitalize(),  # pl. "Hétfő"
+            'day_name': get_hungarian_day_name(date_obj),
             'day_number': date_obj.strftime('%Y. %m. %d.')
         })
 
@@ -179,7 +205,8 @@ def chat():
 Kizárások: {exclusions if exclusions else 'Nincsenek'}
 Preferenciák: {preferences if preferences else 'Nincsenek megadva'}
 Adj étrendi javaslatokat, recepteket, vagy válaszolj étkezéssel kapcsolatos kérdésekre.
-Ha étrendet kérsz, adj meg minden étkezést (reggeli, tízórai, ebéd, uzsonna, vacsora) kalória értékkel és rövid recepttel."""
+Ha étrendet kérsz, adj meg minden étkezést (reggeli, tízórai, ebéd, uzsonna, vacsora) kalória értékkel és rövid recepttel.
+Fontos: az étrend legyen változatos, de praktikus; lehet okosan ismételni (pl. két főétel váltogatása több napra), ne legyen minden nap ugyanaz."""
     
     # DeepSeek API hívás
     ai_response = query_deepseek(user_message, system_message)
@@ -334,32 +361,58 @@ def modify_meal(meal_id):
     settings = get_settings()
     exclusions = settings['exclusions'] if settings else ''
     preferences = settings['preferences'] if settings else ''
+    original_calories = int(original_meal['calories']) if original_meal['calories'] else 0
+    target_calories = calculate_target_calories(modification, original_calories)
     
     prompt = f"""Módosítsd ezt az ételt:
 EREDETI: {original_meal['name']} - {original_meal['recipe']}
+EREDETI KALÓRIA: {original_calories} kcal
 
 KÉRÉS: {modification}
 
 Kizárások: {exclusions}
 Preferenciák: {preferences}
 
-Adj egy új receptet ugyanarra az étkezésre, de a kért módosítással."""
+CÉL KALÓRIA: {target_calories} kcal
+
+Szabály:
+- Ha a kérés NEM kalóriacsökkentésről szól, tartsd a célt kb. ezen a szinten: {target_calories} kcal.
+- Ha kalóriacsökkentésről szól, maradj ezen vagy alatta.
+
+Válasz kötelező formátuma:
+ÉTEL NEVE: [új név]
+KALÓRIA: [szám] kcal
+RECEPT:
+[rövid, gyakorlatias recept]"""
     
     system_message = "Te egy étrendtervező vagy, aki meglévő ételeket módosít a felhasználó kérésére."
     ai_response = query_deepseek(prompt, system_message)
+
+    name_match = re.search(r'ÉTEL\s*NEVE\s*:\s*(.+)', ai_response, re.IGNORECASE)
+    calories_match = re.search(r'KALÓRIA\s*:\s*(\d+)', ai_response, re.IGNORECASE)
+    recipe_match = re.search(r'RECEPT\s*:\s*(.*)', ai_response, re.IGNORECASE | re.DOTALL)
+
+    updated_name = name_match.group(1).strip() if name_match else original_meal['name']
+    updated_calories = int(calories_match.group(1)) if calories_match else target_calories
+    updated_recipe = recipe_match.group(1).strip() if recipe_match else ai_response.strip()
     
     # Új étel mentése (régi törlése helyett frissítés)
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
         UPDATE meals 
-        SET recipe = ?, name = ?
+        SET recipe = ?, name = ?, calories = ?
         WHERE id = ?
-    ''', (ai_response, f"{original_meal['name']} (módosítva)", meal_id))
+    ''', (updated_recipe, updated_name, updated_calories, meal_id))
     conn.commit()
     conn.close()
     
-    return jsonify({"success": True, "response": ai_response})
+    return jsonify({
+        "success": True,
+        "response": updated_recipe,
+        "name": updated_name,
+        "calories": updated_calories
+    })
 
 # Google OAuth API
 @app.route('/api/google/connect')

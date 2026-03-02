@@ -102,6 +102,33 @@ body {
     box-shadow: var(--shadow-hover);
 }
 
+.add-day-card {
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    border-style: dashed;
+    background: #fafbff;
+    min-height: 220px;
+}
+
+.add-day-card:hover {
+    border-color: var(--secondary-color);
+    background: #f0f4ff;
+}
+
+.add-day-plus {
+    font-size: 52px;
+    font-weight: 600;
+    color: var(--primary-color);
+    line-height: 1;
+}
+
+.add-day-text {
+    margin-top: 10px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
 .day-header {
     margin-bottom: 15px;
     padding-bottom: 10px;
@@ -482,6 +509,10 @@ body {
     padding: 20px;
     color: var(--text-secondary);
     font-style: italic;
+}
+
+#modifyMealLoading {
+    padding: 10px 0;
 }
 
 .error {

@@ -90,13 +90,16 @@
                         </div>
 
                         <div class="day-actions">
-                            <button class="btn btn-small btn-meal-prep" onclick="openMealPrepPopup('{{ date_info.iso }}')">🍲 Előre főzés</button>
-                            <button class="btn btn-small btn-quick-meal" onclick="openQuickMealPopup('{{ date_info.iso }}')">⚡ Gyors étel</button>
                             <button class="btn btn-small btn-generate" onclick="generateMealPlan('{{ date_info.iso }}')">🤖 AI Étrend</button>
                             <button class="btn btn-small btn-danger" onclick="clearDay('{{ date_info.iso }}')">🗑️ Törlés</button>
                         </div>
                     </div>
                     {% endfor %}
+
+                    <div class="calendar-day add-day-card" onclick="addNewDayCard()">
+                        <div class="add-day-plus">+</div>
+                        <div class="add-day-text">Új nap hozzáadása</div>
+                    </div>
                 </div>
             </div>
 
@@ -124,58 +127,6 @@
         </div>
     </div>
 
-    <!-- Meal Prep Popup -->
-    <div id="mealPrepPopup" class="popup">
-        <div class="popup-content">
-            <span class="popup-close" onclick="closeMealPrepPopup()">&times;</span>
-            <h2>🍲 Előre főzés</h2>
-            <div class="form-group">
-                <label>Hány napra szeretnél előre főzni?</label>
-                <input type="number" id="mealPrepDays" min="2" max="5" value="3" placeholder="2-5 nap">
-            </div>
-            <div class="form-group">
-                <label>Mely étkezésekre?</label>
-                <div class="checkbox-group">
-                    <label><input type="checkbox" class="meal-prep-type" value="reggeli"> Reggeli</label>
-                    <label><input type="checkbox" class="meal-prep-type" value="tízórai"> Tízórai</label>
-                    <label><input type="checkbox" class="meal-prep-type" value="ebéd"> Ebéd</label>
-                    <label><input type="checkbox" class="meal-prep-type" value="uzsonna"> Uzsonna</label>
-                    <label><input type="checkbox" class="meal-prep-type" value="vacsora"> Vacsora</label>
-                </div>
-            </div>
-            <div class="popup-actions">
-                <button class="btn btn-primary" onclick="generateMealPrep()">Generálás</button>
-                <button class="btn btn-danger" onclick="closeMealPrepPopup()">Mégse</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Gyors Étel Popup -->
-    <div id="quickMealPopup" class="popup">
-        <div class="popup-content">
-            <span class="popup-close" onclick="closeQuickMealPopup()">&times;</span>
-            <h2>⚡ Gyors étel</h2>
-            <div class="form-group">
-                <label>Melyik étkezés?</label>
-                <select id="quickMealType">
-                    <option value="reggeli">Reggeli</option>
-                    <option value="tízórai">Tízórai</option>
-                    <option value="ebéd">Ebéd</option>
-                    <option value="uzsonna">Uzsonna</option>
-                    <option value="vacsora">Vacsora</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Mi van otthon? (vesszővel elválasztva)</label>
-                <textarea id="quickMealIngredients" placeholder="pl. tojás, kenyér, alma, sajt"></textarea>
-            </div>
-            <div class="popup-actions">
-                <button class="btn btn-primary" onclick="generateQuickMeal()">Generálás</button>
-                <button class="btn btn-danger" onclick="closeQuickMealPopup()">Mégse</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Étel Módosítás Popup -->
     <div id="modifyMealPopup" class="popup">
         <div class="popup-content">
@@ -189,8 +140,9 @@
                 <label>Mit szeretnél módosítani?</label>
                 <textarea id="mealModification" placeholder="pl. Ne legyen hús, legyen vegetáriánus, csökkentsd a kalóriát"></textarea>
             </div>
+            <div id="modifyMealLoading" class="loading" style="display:none;">🤖 AI dolgozik a módosításon...</div>
             <div class="popup-actions">
-                <button class="btn btn-primary" onclick="applyMealModification()">Alkalmaz</button>
+                <button id="modifyMealApplyBtn" class="btn btn-primary" onclick="applyMealModification()">Alkalmaz</button>
                 <button class="btn btn-danger" onclick="closeModifyMealPopup()">Mégse</button>
             </div>
         </div>
