@@ -226,6 +226,8 @@ body {
     flex-direction: column;
     height: 100%;
     position: relative;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .chat-header {
@@ -259,7 +261,21 @@ body {
     display: flex;
     flex-direction: column;
     gap: 15px;
-    min-height: 300px;
+    min-height: 0;
+}
+
+.chat-container.chat-collapsed {
+    height: auto;
+    align-self: end;
+}
+
+.chat-container.chat-collapsed .chat-header {
+    border-radius: var(--border-radius);
+}
+
+.chat-container.chat-collapsed .chat-messages,
+.chat-container.chat-collapsed .chat-input {
+    display: none;
 }
 
 .chat-message {

@@ -69,16 +69,13 @@ function addChatMessage(text, type, id = null) {
 }
 
 function toggleChat() {
-    const messagesDiv = document.getElementById('chatMessages');
+    const chatContainer = document.querySelector('.chat-container');
     const toggleIcon = document.getElementById('chatToggleIcon');
-    
-    if (messagesDiv.style.display === 'none') {
-        messagesDiv.style.display = 'flex';
-        toggleIcon.textContent = '▼';
-    } else {
-        messagesDiv.style.display = 'none';
-        toggleIcon.textContent = '▶';
-    }
+
+    if (!chatContainer || !toggleIcon) return;
+
+    chatContainer.classList.toggle('chat-collapsed');
+    toggleIcon.textContent = chatContainer.classList.contains('chat-collapsed') ? '▶' : '▼';
 }
 
 // Settings functions
