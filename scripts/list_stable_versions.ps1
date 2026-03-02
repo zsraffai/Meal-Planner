@@ -18,13 +18,25 @@ $stableTags | ForEach-Object {
     Write-Host "- $tagName -> $commit"
 }
 
-$latest = git rev-parse --verify refs/tags/stable-latest^{commit} 2>$null
-$previous = git rev-parse --verify refs/tags/stable-previous^{commit} 2>$null
+$latest = $null
+$previous = $null
+
+try {
+    $latest = (git rev-parse --verify "refs/tags/stable-latest`^{commit}" 2>$null).Trim()
+} catch {
+    $latest = $null
+}
+
+try {
+    $previous = (git rev-parse --verify "refs/tags/stable-previous`^{commit}" 2>$null).Trim()
+} catch {
+    $previous = $null
+}
 
 if ($latest) {
     Write-Host ""
-    Write-Host "stable-latest  -> $($latest.Trim())"
+    Write-Host "stable-latest  -> $latest"
 }
 if ($previous) {
-    Write-Host "stable-previous -> $($previous.Trim())"
+    Write-Host "stable-previous -> $previous"
 }
