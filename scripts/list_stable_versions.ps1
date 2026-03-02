@@ -1,0 +1,30 @@
+$ErrorActionPreference = "Stop"
+
+if (-not (git rev-parse --is-inside-work-tree 2>$null)) {
+    throw "Ez a mappa nem git repository."
+}
+
+$stableTags = git tag --list "stable-*" --sort=-creatordate
+
+if (-not $stableTags) {
+    Write-Host "Nincs még stabil verzió tag."
+    exit 0
+}
+
+Write-Host "Stabil verziók:"
+$stableTags | ForEach-Object {
+    $tagName = $_.Trim()
+    $commit = (git rev-list -n 1 $tagName).Trim()
+    Write-Host "- $tagName -> $commit"
+}
+
+$latest = git rev-parse --verify refs/tags/stable-latest^{commit} 2>$null
+$previous = git rev-parse --verify refs/tags/stable-previous^{commit} 2>$null
+
+if ($latest) {
+    Write-Host ""
+    Write-Host "stable-latest  -> $($latest.Trim())"
+}
+if ($previous) {
+    Write-Host "stable-previous -> $($previous.Trim())"
+}

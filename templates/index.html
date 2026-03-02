@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Étrend Tervező</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🍽️ Étrend Tervező</h1>
+            <div class="header-actions">
+                <button class="btn btn-primary" onclick="toggleSettingsOverlay()">⚙️ Beállítások</button>
+            </div>
+        </header>
+
+        <!-- Beállítások Overlay -->
+        <div id="settingsOverlay" class="overlay">
+            <div class="overlay-content">
+                <span class="overlay-close" onclick="closeSettingsOverlay()">&times;</span>
+                <h2>⚙️ Beállítások</h2>
+                
+                <div class="settings-section">
+                    <h3>🎯 Célok</h3>
+                    <div class="form-group">
+                        <label for="calorieGoal">Napi kalória cél</label>
+                        <input type="number" id="calorieGoal" value="{{ settings.calorie_goal if settings else 2000 }}">
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3>🚫 Kizárások</h3>
+                    <div class="form-group">
+                        <label for="exclusions">Kizárások (pl. tej, glutén, hús)</label>
+                        <textarea id="exclusions" placeholder="pl. tejtermék, glutén">{{ settings.exclusions if settings else '' }}</textarea>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3>⭐ Preferenciák</h3>
+                    <div class="form-group">
+                        <label for="preferences">Preferenciák (pl. vegetáriánus, csípős, gyors)</label>
+                        <textarea id="preferences" placeholder="pl. vegetáriánus, gyors étel">{{ settings.preferences if settings else '' }}</textarea>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3>🛒 Google Keep Integráció</h3>
+                    <div class="form-group">
+                        <button class="btn btn-primary" onclick="connectGoogleKeep()">Google fiók csatlakoztatása</button>
+                        <p class="help-text">A bevásárlólista automatikusan szinkronizálódik a Google Keep-be.</p>
+                    </div>
+                </div>
+
+                <div class="settings-actions">
+                    <button class="btn btn-primary" onclick="saveSettings()">Beállítások mentése</button>
+                    <button class="btn btn-logout" onclick="logout()">Kijelentkezés</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Naptár -->
+            <div class="calendar-container">
+                <h2>📅 7 napos naptár</h2>
+                <div class="calendar-grid">
+                    {% for date_info in dates %}
+                    <div class="calendar-day" id="day-{{ date_info.iso }}">
+                        <div class="day-header">
+                            <div class="day-name">{{ date_info.day_name }}</div>
+                            <div class="day-date">{{ date_info.day_number }}</div>
+                        </div>
+
+                        <div class="meals-list" id="meals-{{ date_info.iso }}">
+                            {% if meals[date_info.iso] %}
+                                {% for meal in meals[date_info.iso] %}
+                                <div class="meal-item" onclick="showRecipe('{{ meal.name }}', '{{ meal.recipe | replace('\n', '\\n') | replace('\'', '\\\'') }}', {{ meal.calories }})">
+                                    <span class="meal-type">{{ meal.meal_type }}</span>
+                                    <span class="meal-name">{{ meal.name }}</span>
+                                    <span class="meal-calories">{{ meal.calories }} kcal</span>
+                                    <button class="btn btn-small btn-modify" onclick="event.stopPropagation(); modifyMeal({{ meal.id }}, '{{ meal.name }}')">✏️</button>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="no-meals">Még nincs étel</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="day-actions">
+                            <button class="btn btn-small btn-meal-prep" onclick="openMealPrepPopup('{{ date_info.iso }}')">🍲 Előre főzés</button>
+                            <button class="btn btn-small btn-quick-meal" onclick="openQuickMealPopup('{{ date_info.iso }}')">⚡ Gyors étel</button>
+                            <button class="btn btn-small btn-generate" onclick="generateMealPlan('{{ date_info.iso }}')">🤖 AI Étrend</button>
+                            <button class="btn btn-small btn-danger" onclick="clearDay('{{ date_info.iso }}')">🗑️ Törlés</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Chat - Jobb oldalon -->
+            <div class="chat-container">
+                <div class="chat-header" onclick="toggleChat()">
+                    💬 AI Chat
+                    <span id="chatToggleIcon">▼</span>
+                </div>
+                <div id="chatMessages" class="chat-messages"></div>
+                <div class="chat-input">
+                    <input type="text" id="chatInput" placeholder="Kérdezz valamit az AI-tól..." onkeypress="handleChatKeyPress(event)">
+                    <button class="btn btn-primary" onclick="sendChatMessage()">Küldés</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recept Popup -->
+    <div id="recipePopup" class="popup">
+        <div class="popup-content">
+            <span class="popup-close" onclick="closeRecipePopup()">&times;</span>
+            <h2 id="recipeTitle"></h2>
+            <div id="recipeContent"></div>
+        </div>
+    </div>
+
+    <!-- Meal Prep Popup -->
+    <div id="mealPrepPopup" class="popup">
+        <div class="popup-content">
+            <span class="popup-close" onclick="closeMealPrepPopup()">&times;</span>
+            <h2>🍲 Előre főzés</h2>
+            <div class="form-group">
+                <label>Hány napra szeretnél előre főzni?</label>
+                <input type="number" id="mealPrepDays" min="2" max="5" value="3" placeholder="2-5 nap">
+            </div>
+            <div class="form-group">
+                <label>Mely étkezésekre?</label>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" class="meal-prep-type" value="reggeli"> Reggeli</label>
+                    <label><input type="checkbox" class="meal-prep-type" value="tízórai"> Tízórai</label>
+                    <label><input type="checkbox" class="meal-prep-type" value="ebéd"> Ebéd</label>
+                    <label><input type="checkbox" class="meal-prep-type" value="uzsonna"> Uzsonna</label>
+                    <label><input type="checkbox" class="meal-prep-type" value="vacsora"> Vacsora</label>
+                </div>
+            </div>
+            <div class="popup-actions">
+                <button class="btn btn-primary" onclick="generateMealPrep()">Generálás</button>
+                <button class="btn btn-danger" onclick="closeMealPrepPopup()">Mégse</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gyors Étel Popup -->
+    <div id="quickMealPopup" class="popup">
+        <div class="popup-content">
+            <span class="popup-close" onclick="closeQuickMealPopup()">&times;</span>
+            <h2>⚡ Gyors étel</h2>
+            <div class="form-group">
+                <label>Melyik étkezés?</label>
+                <select id="quickMealType">
+                    <option value="reggeli">Reggeli</option>
+                    <option value="tízórai">Tízórai</option>
+                    <option value="ebéd">Ebéd</option>
+                    <option value="uzsonna">Uzsonna</option>
+                    <option value="vacsora">Vacsora</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Mi van otthon? (vesszővel elválasztva)</label>
+                <textarea id="quickMealIngredients" placeholder="pl. tojás, kenyér, alma, sajt"></textarea>
+            </div>
+            <div class="popup-actions">
+                <button class="btn btn-primary" onclick="generateQuickMeal()">Generálás</button>
+                <button class="btn btn-danger" onclick="closeQuickMealPopup()">Mégse</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Étel Módosítás Popup -->
+    <div id="modifyMealPopup" class="popup">
+        <div class="popup-content">
+            <span class="popup-close" onclick="closeModifyMealPopup()">&times;</span>
+            <h2>✏️ Étel módosítás</h2>
+            <div class="form-group">
+                <label>Étel neve:</label>
+                <div id="modifyMealName" class="meal-name-display"></div>
+            </div>
+            <div class="form-group">
+                <label>Mit szeretnél módosítani?</label>
+                <textarea id="mealModification" placeholder="pl. Ne legyen hús, legyen vegetáriánus, csökkentsd a kalóriát"></textarea>
+            </div>
+            <div class="popup-actions">
+                <button class="btn btn-primary" onclick="applyMealModification()">Alkalmaz</button>
+                <button class="btn btn-danger" onclick="closeModifyMealPopup()">Mégse</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
